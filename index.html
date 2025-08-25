@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Craig Store</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .product-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            position: relative;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        #product-modal, #image-zoom-modal {
+            transition: opacity 0.3s ease;
+        }
+        .zoomable-image {
+            cursor: zoom-in;
+        }
+        .sold-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            border-radius: 0.5rem;
+        }
+        .sold-text {
+            color: #b91c1c;
+            font-size: 2.25rem;
+            font-weight: 900;
+            transform: rotate(-15deg);
+            border: 4px solid #b91c1c;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            user-select: none;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-2">Vitrine de Oportunidades - CraigStore</h1>
+            <p class="text-lg text-gray-600">Produtos usados, mas com cara de novos – economia inteligente para quem sabe aproveitar.</p>
+        </header>
+
+        <aside id="filters" class="bg-white p-6 rounded-lg shadow-md mb-8 sticky top-4 z-10">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label for="category-filter" class="block text-sm font-medium text-gray-700 mb-2">Filtrar por Categoria</label>
+                    <select id="category-filter" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="all">Todas as Categorias</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Filtrar por Preço (R$)</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="min-price-filter" placeholder="Mínimo" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        <span class="text-gray-500">-</span>
+                        <input type="number" id="max-price-filter" placeholder="Máximo" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                </div>
+                <div class="flex items-end">
+                    <button id="reset-filters" class="w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition duration-150">
+                        Limpar Filtros
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <main id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            <!-- Product cards will be inserted here by JavaScript -->
+        </main>
+        
+        <div id="no-results" class="hidden text-center py-16">
+            <h3 class="text-2xl font-semibold text-gray-700">Nenhum produto encontrado</h3>
+            <p class="text-gray-500 mt-2">Tente ajustar seus filtros para encontrar o que procura.</p>
+        </div>
+    </div>
+
+    <!-- Product Details Modal -->
+    <div id="product-modal" class="hidden fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div id="modal-container" class="relative w-full max-w-2xl shadow-lg rounded-lg bg-white">
+            <div class="p-6">
+                <div class="flex justify-between items-start">
+                    <h2 id="modal-title" class="text-2xl leading-6 font-bold text-gray-900"></h2>
+                    <button id="modal-close-btn" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div id="modal-content" class="mt-4 text-left space-y-5 max-h-[70vh] overflow-y-auto pr-2">
+                    <!-- Content will be injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Zoom Modal -->
+    <div id="image-zoom-modal" class="hidden fixed inset-0 bg-black bg-opacity-80 z-[60] flex items-center justify-center p-4">
+        <img id="zoomed-image" src="" alt="Imagem ampliada do produto" class="max-w-full max-h-[90vh] object-contain">
+        <button id="image-zoom-close-btn" class="absolute top-4 right-4 text-white text-3xl">&times;</button>
+    </div>
+
+
+    <script>
+    const products = [
+        { 
+            id: 1, name: "Drone DJI Neo, 4K", category: "Drones", condition: "Semi-Novo", price: 1900, 
+            imageUrl: "https://m.media-amazon.com/images/I/71gsXLGHltL._AC_SX466_.jpg",
+            imageUrl2: "https://m.media-amazon.com/images/I/71b8EU-SWdL._AC_SX466_.jpg", 
+            description: "Mini drone ultraleve com câmera 4K UHD, ideal para vlogs. Inclui bateria extra e case.",
+            persuasiveText: "Capture vídeos aéreos cinematográficos em 4K com a incrível facilidade de um drone que decola da palma da sua mão! Este DJI Neo é a ferramenta perfeita para suas viagens, vlogs e para registrar momentos em família com uma perspectiva única. Ele está em estado impecável, praticamente sem uso, e o melhor: já vem com uma bateria extra, dobrando seu tempo de voo, e um case rígido para transportar tudo com segurança. Uma oportunidade única de levar um kit completo, pronto para voar, por uma fração do preço de um novo. Produto no Brasil, a pronta entrega!",
+            detailedCondition: "Produto em estado de novo, utilizado pouquíssimas vezes, sem qualquer detalhe, risco ou marca de uso. 100% funcional, testado e operando perfeitamente. Nunca sofreu quedas ou acidentes.",
+            includedItems: ["1x Drone DJI Neo", "2x Baterias de Voo Inteligente", "1x Case de Transporte Rígido", "1x Protetor de Gimbal/Câmera", "Hélices reservas", "Cabo USB-C"],
+            additionalInfo: "Por ser um produto usado, não possui garantia de fábrica. Ofereço garantia de funcionamento de 7 dias para que você possa testar todas as funcionalidades. Envio seguro para todo o Brasil ou retirada em mãos."
+        },
+        { 
+            id: 2, name: "Oculus Quest 2 256GB", category: "VR & Gaming", condition: "Semi-Novo", price: 1900, 
+            imageUrl: "https://m.media-amazon.com/images/I/711x42sfspL._AC_SX466_.jpg", 
+            imageUrl2: "https://m.media-amazon.com/images/I/51Ai5cdk0PL._SX522_.jpg",
+            description: "Headset de VR autônomo com 256GB. Inclui hardcase para armazenamento.",
+            persuasiveText: "Entre de cabeça na realidade virtual sem precisar de um PC ou console! Este Oculus Quest 2 de 256GB oferece a experiência VR definitiva, com total liberdade de movimento. Esta é a versão com o maior armazenamento, para você baixar dezenas de jogos e aplicativos sem se preocupar com espaço. O aparelho está em estado de novo, com pouquíssimo uso, e acompanha um hardcase de alta qualidade para proteger seu investimento. Uma oportunidade imperdível para ter o melhor da VR por um preço justo!",
+            detailedCondition: "Headset em estado de novo, usado pouquíssimas vezes. Lentes perfeitas, sem nenhum risco. Controles e corpo do aparelho sem detalhes, marcas de uso ou defeitos. 100% funcional, com bateria durando normalmente. Totalmente testado e higienizado.",
+            includedItems: ["1x Headset Oculus Quest 2 256GB", "2x Controles Touch", "1x Hardcase de Transporte e Proteção", "1x Carregador e cabo USB-C originais", "1x Espaçador para óculos"],
+            additionalInfo: "Sem garantia de fábrica. Ofereço garantia de funcionamento de 7 dias para testes. Envio seguro para todo o Brasil ou retirada em mãos."
+        },
+        { 
+            id: 3, name: "Apple HomePod Mini", category: "Smart Home", condition: "Semi-Novo", price: 850, 
+            //status: "Vendido",
+            imageUrl: "https://m.media-amazon.com/images/I/41bGNUib-aL._AC_SX466_.jpg", 
+            imageUrl2: "https://www.apple.com/newsroom/images/product/homepod/standard/Apple_homepod-mini-white-iphone-pairing_10132020_big.jpg.large.jpg",
+            description: "Alto-falante inteligente com áudio 360 graus e integração com ecossistema Apple.",
+            persuasiveText: "Leve a qualidade de som premium da Apple e a inteligência da Siri para sua casa. Este HomePod Mini preenche qualquer ambiente com um som rico e detalhado de 360 graus. Perfeito para quem já vive no ecossistema Apple, ele controla sua casa inteligente, toca suas playlists favoritas e muito mais. Está em estado de novo, usado apenas para teste. Aproveite para ter essa peça de design e tecnologia por um preço especial.",
+            detailedCondition: "Impecável, sem nenhum detalhe. Usado apenas 2 ou 3 vezes para teste. 100% perfeito, som cristalino e todas as funções da Siri e HomeKit operando normalmente.",
+            includedItems: ["1x Apple HomePod Mini", "1x Adaptador de energia de 20W e cabo originais"],
+            additionalInfo: "Sem garantia de fábrica. Garantia de funcionamento de 7 dias. Envio para todo o Brasil."
+        },
+        {
+            id: 4, name: "Google Home Mini", category: "Smart Home", condition: "Semi-Novo", price: 200, 
+            imageUrl: "https://platform.theverge.com/wp-content/uploads/sites/2/chorus/uploads/chorus_asset/file/9438149/dseifert_171008_2042_4560_02.jpg?quality=90&strip=all&crop=0,0,100,100", 
+            imageUrl2: "https://images.tcdn.com.br/img/img_prod/1086247/google_home_mini_assistente_pessoal_wi_fi_1805_2_f1c27abc596ef21645d0233559c486e7.jpg",
+            description: "Alto-falante inteligente com Google Assistente para controle de voz e automação.",
+            persuasiveText: "O jeito mais fácil e acessível de deixar sua casa mais inteligente! Com o Google Home Mini, você pode controlar luzes, tocar suas músicas do Spotify, saber a previsão do tempo e muito mais, tudo com comandos de voz. Este aparelho está praticamente sem uso e funcionando perfeitamente. Ideal para quem quer conveniência e um assistente pessoal no dia a dia.",
+            detailedCondition: "Em perfeito estado, como novo. Usado pouquíssimas vezes. 100% funcional.",
+            includedItems: ["1x Google Home Mini", "1x Fonte e cabo de alimentação originais"],
+            additionalInfo: "Sem garantia. Envio para todo o Brasil."
+        },
+        {
+            id: 5, name: "TV Sony KDL-50W805B 50\"", category: "TVs & Monitores", condition: "Pouco Usada", price: 1200, 
+            imageUrl: "https://images.auctionet.com/thumbs/large_item_1223766_993aeb58ef.JPG", 
+            imageUrl2: "https://www.soundvisionreview.com/wp-content/uploads/Sony-Bravia-KDL-50W805B-wall-mount.jpg",
+            description: "Smart TV Full HD com cores vibrantes e Ambilight adicionado.",
+            persuasiveText: "Transforme sua sala em um cinema com esta TV Sony Bravia de 50 polegadas! A qualidade de imagem Full HD com a tecnologia X-Reality PRO da Sony oferece cores vibrantes e detalhes impressionantes. Ideal para filmes e games, graças à sua alta taxa de atualização que deixa as cenas de ação super fluidas. TV em estado impecável, sem defeitos. Uma oportunidade de ter uma tela grande de uma marca premium por um preço excelente.",
+            detailedCondition: "TV em excelente estado de conservação, com pouquíssimo uso. Tela sem nenhum risco ou mancha. Controle remoto original funcionando perfeitamente. Acompanha um kit de iluminação traseira (ambi-light) que cria um efeito imersivo no ambiente.",
+            includedItems: ["1x TV Sony KDL-50W805B", "1x Base de mesa original", "1x Controle remoto original", "1x Cabo de força"],
+            additionalInfo: "Por ser um modelo mais antigo, alguns aplicativos de streaming podem não estar disponíveis. Recomenda-se o uso de um dispositivo externo como Chromecast. Apenas para retirada em mãos devido ao tamanho."
+        },
+        { 
+            id: 6, name: "TV Sony KDL-40NX715 40\"", category: "TVs & Monitores", condition: "Usada", price: 550, 
+            imageUrl: "https://i.zst.com.br/thumbs/12/b/37/964120.jpg", 
+            imageUrl2: "https://img.olx.com.br/images/68/681519666653311.jpg",
+            description: "TV Full HD com design elegante, ideal para escritório ou ambiente menor." ,
+            persuasiveText: "Procurando uma TV de alta qualidade para seu quarto, escritório ou sala de jogos? Esta Sony Bravia de 40 polegadas é a escolha perfeita. Com resolução Full HD, a imagem é nítida e com as cores excelentes que são a marca da Sony. Seu design fino e elegante se encaixa em qualquer ambiente. Totalmente funcional e pronta para uso.",
+            detailedCondition: "TV usada e em bom estado de conservação, com design elegante que ainda se destaca. Funcionando perfeitamente, sem defeitos na imagem ou som. Acompanha um kit de iluminação traseira (ambi-light) que cria um efeito imersivo no ambiente.",
+            includedItems: ["1x TV Sony KDL-40NX715", "1x Controle remoto original", "1x Cabo de força"],
+            additionalInfo: "As funções Smart podem estar limitadas devido à idade do software. Para uma experiência completa com apps, recomenda-se um Chromecast/Fire Stick."
+        },
+	{
+        id: 7, name: "NuraPhone 100B", category: "Áudio", condition: "Semi-Novo", price: 1200,
+        imageUrl: "https://www.techadvisor.com/wp-content/uploads/2022/06/nura_headphones_review02-1.jpg?quality=50&strip=all",
+        imageUrl2: "https://gilaherald.com/wp-content/uploads/2018/12/Nuraphones-in-case-735x340.jpg",
+        description: "Fone inovador com som personalizado que se adapta à sua audição. Inclui case.",
+        persuasiveText: "Este não é um fone de ouvido comum. O NuraPhone é o único fone no mundo que aprende e se adapta à sua audição, criando um perfil sonoro único e exclusivo para você. O resultado é uma clareza e detalhamento musical que você nunca ouviu antes. Com cancelamento de ruído ativo e um modo de imersão que faz você sentir os graves, é uma experiência sonora incomparável. Está em estado de novo, na case original. Uma oportunidade rara no Brasil!",
+        detailedCondition: "Fone em estado de novo, usado pouquíssimas vezes. Sem nenhum detalhe estético ou de funcionamento.",
+        includedItems: [
+            "1x Fone NuraPhone",
+            "1x Case de transporte magnético",
+            "1x Cabo de carregamento USB-A",
+            "Pontas de silicone de vários tamanhos"
+        ],
+        additionalInfo: "Garantia: Sem garantia."
+    },
+    {
+        id: 8, name: "JBL Endurance Peak III", category: "Áudio", condition: "Semi-Novo", price: 450,
+        imageUrl: "https://www.digitaltrends.com/wp-content/uploads/2023/02/jbl-endurance-peak-iii-review-00008.jpeg?p=1",
+        imageUrl2: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTBZNDM12WW3nb6WBMmIqpAqABuMCgWRsYtYg&s",
+        description: "Fone esportivo sem fio com classificação IP68. Na caixa original, usado 1x.",
+        persuasiveText: "Procurando o fone perfeito para seus treinos? O JBL Endurance Peak III foi feito para aguentar qualquer desafio. Com som JBL Pure Bass, ajuste seguro que não cai da orelha e resistência total à água e suor (IP68), ele é o parceiro ideal para corrida, academia ou qualquer esporte. Este par está literalmente novo, usado apenas uma vez, e vai na caixa original. Aproveite a chance de ter um fone top de linha por um preço de seminovo!",
+        detailedCondition: "Absolutamente impecável, como novo. Foi usado apenas uma única vez para teste. Sem nenhum detalhe.",
+        includedItems: [
+            "1x Fones JBL Endurance Peak III",
+            "1x Case de carregamento",
+            "1x Caixa original",
+            "1x Cabo de carregamento USB-C",
+            "3x Tamanhos de ponteiras de silicone"
+        ],
+        additionalInfo: "Garantia: Sem garantia."
+    },
+        {
+            id: 9, name: "Notebook Dell Inspiron 5548", category: "Periféricos & PC", condition: "Semi-Novo", price: 1750, 
+            imageUrl: "https://cdn.shoppub.io/cdn-cgi/image/w=1000,h=1000,q=80,f=auto/oficinadosbits/media/uploads/produtos/foto/oalmabjl/file.png", 
+            imageUrl2: "https://i.dell.com/das/dih.ashx/500x500/das/xa_____/global-site-design%20WEB/07dd9bf3-d21c-21f0-4653-12b9580bbd1a/1/OriginalPng?id=Dell/Product_Images/Dell_Client_Products/Notebooks/Inspiron_Notebooks/Inspiron_15_5547_Non_Touch/relativesized/laptop-inspiron-15-5547-non-touch-front-silver-generic-relativesize-ss-imperial-500-ng.png",
+            description: "i7-5500U, 8GB RAM, SSD 500GB, AMD Radeon 2GB. Inclui mochila original.",
+            persuasiveText: "Cansado de notebooks lentos? Este Dell Inspiron combina a potência de um processador Core i7 com o upgrade que faz toda a diferença: um SSD de 500GB! Ele liga em segundos e abre programas instantaneamente. Ideal para trabalho, estudos e até jogos leves, graças à sua placa de vídeo dedicada. Máquina muito bem cuidada, com pouquíssimo uso, e ainda acompanha a mochila original da Dell. Uma performance incrível por um preço justo.",
+            detailedCondition: "Notebook em excelente estado de conservação e com pouquíssimo uso. Possui um pequeno amassado na quina da tampa (conforme fotos), um detalhe puramente estético que não afeta em nada o funcionamento. 100% funcional, rápido e estável graças ao SSD. Bateria com boa autonomia.",
+            includedItems: ["1x Notebook Dell Inspiron 5548", "1x Fonte de alimentação original", "1x Mochila original Dell"],
+            additionalInfo: "Sem garantia."
+        },
+    {
+        id: 10,
+        name: "Airpods Pro (1ª Geração)",
+        category: "Áudio",
+        condition: "Usado",
+        price: 950,
+        imageUrl: "https://i.ebayimg.com/images/g/KrcAAeSwDKhoeaVS/s-l1600.webp",
+        imageUrl2: "https://i.ebayimg.com/images/g/N2YAAeSweF5oeaVR/s-l1600.webp",
+        description: "Cancelamento ativo de ruído e som imersivo. Na caixa original.",
+        persuasiveText: "Experimente um som imersivo como nunca antes com os AirPods Pro. O cancelamento ativo de ruído bloqueia o mundo exterior para você focar na sua música, e o modo ambiente permite que você ouça o que está ao redor quando precisar. Este par é 100% original, está funcionando perfeitamente e vem na caixa original. A melhor experiência de áudio do ecossistema Apple por um preço excelente.",
+        detailedCondition: "Fones e estojo usados, mas em ótimo estado de conservação, sem defeitos. 100% funcionais. Cancelamento de ruído, modo ambiente e conexão com dispositivos Apple operando perfeitamente. Bateria segurando carga normalmente para o modelo. Totalmente higienizados.",
+        includedItems: [
+            "1x Par de AirPods Pro (1ª Geração)",
+            "1x Estojo de carregamento sem fio",
+            "1x Caixa original",
+            "Pontas de silicone (tamanhos P, M, G)"
+        ],
+        additionalInfo: "Garantia: Sem garantia."
+    },
+    {
+        id: 11,
+        name: "Sonos Play One (S1)",
+        category: "Smart Home",
+        condition: "Usado",
+        price: 900,
+        imageUrl: "https://www.cnet.com/a/img/resize/cbf95d133e5339d42a18654988d98d068d90b345/hub/2013/10/11/cd7d4289-84ca-11e3-beb9-14feb5ca9861/004Sonos_Play_1_black_35828916_1.jpg?auto=webp&width=1200",
+        imageUrl2: "https://m.media-amazon.com/images/I/81tcrgWeCyL.jpg",
+        description: "Alto-falante inteligente com som rico, integrado ao ecossistema Sonos.",
+        persuasiveText: "Descubra por que a Sonos é referência em áudio para casa. A Play:1 é uma caixa de som compacta que entrega um som surpreendentemente rico e potente. Perfeita para qualquer cômodo, ela se conecta via Wi-Fi para tocar suas músicas e podcasts favoritos sem interrupções. Esta unidade está em perfeito estado e é a porta de entrada ideal para o ecossistema de som multi-ambiente da Sonos. Qualidade de som que impressiona.",
+        detailedCondition: "Usada, em excelente estado de conservação, sem detalhes ou avarias. 100% funcional, som limpo e potente, conecta-se perfeitamente à rede Wi-Fi e ao app Sonos S1.",
+        includedItems: [
+            "1x Caixa de som Sonos Play:1",
+            "1x Cabo de alimentação original"
+        ],
+        additionalInfo: "Compatibilidade: Este modelo é compatível com o aplicativo Sonos S1. Verifique a compatibilidade com seus outros produtos Sonos, caso possua. Garantia: Sem garantia."
+    },
+    {
+        id: 12,
+        name: "PlaytoAir+ - Faaftech",
+        category: "Automotivo",
+        condition: "Semi-Novo",
+        price: 600,
+        imageUrl: "https://img.irroba.com.br/fit-in/600x600/filters:fill(fff):quality(80)/fabreiui/catalog/d-nq-np-2x-783609-mlb76967659721-062024-f.jpg",
+        imageUrl2: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR6mICGGzfhokE8FINXU81zBpLa58cSR84yGQ&s",
+        description: "Adiciona CarPlay e Android Auto sem fio à multimídia original do carro.",
+        persuasiveText: "Livre-se dos cabos no seu carro! Com o PlaytoAir+ da Faaftech, você transforma a multimídia original do seu carro, usando CarPlay e Android Auto totalmente sem fio. Além disso, assista a vídeos do YouTube e Netflix diretamente na tela do carro. Instalação plug-and-play super simples. Produto como novo, na caixa.",
+        detailedCondition: "Produto seminovo, usado pouquíssimas vezes. Na embalagem original. 100% funcional.",
+        includedItems: [
+            "1x Módulo PlaytoAir+",
+            "1x Cabo USB",
+            "1x Adaptador USB-C",
+            "Embalagem original"
+        ],
+        additionalInfo: "Compatibilidade: Verifique a lista de carros compatíveis no site da Faaftech. Funciona em veículos com CarPlay de fábrica via cabo. Garantia: Sem garantia. Envio: Envio para todo o Brasil."
+    },
+    {
+        id: 13,
+        name: "Streaming Box 2022 - Faaftech",
+        category: "Automotivo",
+        condition: "Semi-Novo",
+        price: 850,
+        imageUrl: "https://a-static.mlcdn.com.br/1500x1500/streaming-box-toro-2020-a-2022-com-carplay-4g-wi-fi-sd-card-faaftech/wolloko2/20211008120340359/364a47d4715c7bf5472e0bb1ab1f9c4b.jpeg",
+        imageUrl2: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS4y7uDsevR8CMffnQ6h1Gt-PYZcR6-Ut1wfw&s",
+        description: "Transforma a multimídia do carro em um centro de entretenimento com sistema Android.",
+        persuasiveText: "A central multimídia do seu carro pode fazer muito mais! Com a Streaming Box da Faaftech, você a transforma em um verdadeiro tablet Android. Baixe qualquer aplicativo da Play Store, assista Netflix, use o Waze e muito mais, tudo na tela original do seu veículo. Produto seminovo, na caixa, pronto para instalar e usar.",
+        detailedCondition: "Como novo, usado poucas vezes. Na embalagem original. Funcionamento perfeito.",
+        includedItems: [
+            "1x Streaming Box Faaftech",
+            "1x Cabo USB",
+            "Embalagem original"
+        ],
+        additionalInfo: "Garantia: Sem garantia. Envio: Envio para todo o Brasil."
+    },
+    {
+        id: 14,
+        name: "Logitech G920 Racing Wheel",
+        category: "VR & Gaming",
+        condition: "Semi-Novo",
+        price: 1650,
+        imageUrl: "https://m.media-amazon.com/images/I/61O7HHu181L.jpg",
+        imageUrl2: "https://http2.mlstatic.com/D_NQ_NP_643365-MLU78867829043_092024-O.webp",
+        description: "Volante de corrida de alta performance para Xbox e PC. Force feedback realista.",
+        persuasiveText: "Leve seu realismo nas pistas para outro nível! O Logitech G920 oferece uma experiência de simulação de corrida incrível, com Force Feedback que faz você sentir cada derrapada e mudança de terreno. Este volante está em estado impecável, usado pouquíssimas vezes. Perfeito para jogos como Forza, Assetto Corsa e F1. Sinta-se como um verdadeiro piloto!",
+        detailedCondition: "Produto em estado de novo, com pouquíssimo uso. Sem nenhum detalhe, risco ou marca de desgaste no couro ou nos pedais. 100% funcional, Force Feedback forte e preciso.",
+        includedItems: [
+            "1x Volante Logitech G920",
+            "1x Conjunto de pedais",
+            "1x Fonte de alimentação original"
+        ],
+        additionalInfo: "Garantia: Sem garantia. Envio: Envio para todo o Brasil ou retirada em mãos."
+    },
+    {
+        id: 15,
+        name: "Oculus Rift + Touch",
+        category: "VR & Gaming",
+        condition: "Usado",
+        price: 1400,
+        imageUrl: "https://www.techadvisor.com/wp-content/uploads/2022/06/oculus_rift_201709.jpg?quality=50&strip=all",
+        imageUrl2: "https://www.werd.com/wp-content/uploads/2015/06/Oculus-Rift-Touch.jpg",
+        description: "Experiência de realidade virtual de alta fidelidade para PC, com rastreamento preciso.",
+        persuasiveText: "Para entusiastas de VR no PC! O Oculus Rift oferece uma experiência de realidade virtual de alta fidelidade, com gráficos imersivos e rastreamento preciso. Este kit completo inclui o headset, os aclamados controles Oculus Touch e os sensores para uma imersão total. Ideal para jogos que exigem performance gráfica e controle manual preciso. Tudo funcionando perfeitamente.",
+        detailedCondition: "Kit usado, mas em bom estado de conservação e totalmente funcional. Lentes sem riscos. Testado e funcionando perfeitamente.",
+        includedItems: [
+            "1x Headset Oculus Rift",
+            "2x Controles Oculus Touch",
+            "2x Sensores de rastreamento",
+            "Todos os cabos necessários"
+        ],
+        additionalInfo: "Requisitos: Requer um PC gamer com placa de vídeo compatível. Verifique os requisitos mínimos no site da Oculus. Garantia: Sem garantia. Envio: Envio para todo o Brasil."
+    },
+    {
+        id: 16,
+        name: "Cadeira Flex Form LED All-Black",
+        category: "Periféricos & PC",
+        condition: "Usada",
+        price: 1200,
+        imageUrl: "https://assets.betalabs.net/production/flexform/extra_fields/21/phpQrMdOi1645041801.jpg",
+        imageUrl2: "https://assets.betalabs.net/production/flexform/item-images/1765a877133541af2846d700196f32d1.JPG",
+        description: "Cadeira de escritório ergonômica que combina design moderno com conforto excepcional.",
+        persuasiveText: "Invista no seu conforto e produtividade com uma das melhores cadeiras ergonômicas do mercado. A Flexform LED, com seu design italiano premiado, oferece todos os ajustes necessários para um dia de trabalho ou estudo sem dores. Esta cadeira está em ótimo estado, com todos os mecanismos funcionando perfeitamente. Uma oportunidade de ter uma cadeira premium por um preço de intermediária.",
+        detailedCondition: "Cadeira usada, em ótimo estado de conservação, sem defeitos. Todos os mecanismos de ajuste funcionando perfeitamente. Tela e tecido sem rasgos ou desgastes significativos.",
+        includedItems: [
+            "1x Cadeira Flexform LED All-Black montada"
+        ],
+        additionalInfo: "Garantia: Sem garantia. Envio: Apenas para retirada em mãos devido ao volume."
+    },
+    {
+        id: 17,
+        name: "Eilik Robô Interativo",
+        category: "Gadgets & Acessórios",
+        condition: "Semi-Novo",
+        price: 1300,
+        imageUrl: "https://m.media-amazon.com/images/I/51DBd7O6GEL.jpg",
+        imageUrl2: "https://echotecheg.com/wp-content/uploads/2024/06/Untitled-design-4.png",
+        description: "Robô com inteligência emocional, projetado para ser um companheiro divertido. Na caixa.",
+        persuasiveText: "Leve para casa o companheiro de mesa mais divertido que existe! O Eilik é um robô com personalidade que reage ao seu toque, fica feliz, bravo, e interage com você de inúmeras maneiras. Este Eilik está em estado de novo, na caixa, e o melhor: já está no Brasil! Receba em poucos dias, sem se preocupar com taxas de importação ou longas esperas. Perfeito para presentear ou para alegrar seu dia a dia.",
+        detailedCondition: "Como novo, sem nenhum detalhe. Na caixa original com todos os acessórios. 100% perfeito.",
+        includedItems: [
+            "1x Robô Eilik",
+            "1x Cabo de carregamento USB-C",
+            "Acessórios de comida",
+            "Manual e caixa original"
+        ],
+        additionalInfo: "Garantia: Sem garantia. Envio: Envio para todo o Brasil."
+    },
+    {
+        id: 18,
+        name: "Monitor Dell P2719H 27\"",
+        category: "TVs & Monitores",
+        condition: "Usado",
+        price: 1050,
+        imageUrl: "https://http2.mlstatic.com/D_NQ_NP_935690-MLB75314070851_032024-O.webp",
+        imageUrl2: "https://m.media-amazon.com/images/I/51UmbxdmCuL.jpg",
+        description: "Tela Full HD com painel IPS, cores vibrantes e base totalmente ergonômética.",
+        persuasiveText: "Aumente sua produtividade com este monitor Dell de 27 polegadas. O painel IPS garante cores vibrantes e consistentes, e a base totalmente ajustável permite que você encontre a posição perfeita para trabalhar com conforto o dia todo. Ideal para home office ou setups com múltiplos monitores, graças às suas bordas finas. Qualidade e ergonomia Dell por um preço acessível.",
+        detailedCondition: "Monitor usado, em ótimo estado, sem riscos na tela. 100% funcional, sem pixels mortos ou manchas.",
+        includedItems: [
+            "1x Monitor Dell P2719H com base",
+            "1x Cabo de força",
+            "1x Cabo de vídeo (HDMI ou DisplayPort)"
+        ],
+        additionalInfo: "Garantia: Sem garantia. Envio: Preferencialmente retirada em mãos, mas envio pode ser negociado."
+    },
+    {
+        id: 19,
+        name: "Monitor Samsung ViewFinity S6 34\"",
+        category: "TVs & Monitores",
+        condition: "Semi-Novo",
+        price: 2600,
+        imageUrl: "https://http2.mlstatic.com/D_Q_NP_732075-MLA84846738771_052025-O.webp",
+        imageUrl2: "https://http2.mlstatic.com/D_NQ_NP_869891-MLB85580742916_062025-O.webp",
+        description: "Monitor Ultrawide UWQHD de 2024. Ainda na garantia do fabricante.",
+        persuasiveText: "Uma experiência visual totalmente imersiva para trabalho e lazer! Este monitor Samsung Ultrawide de 34 polegadas oferece um espaço de tela incrível para multitarefas e uma qualidade de imagem fantástica para jogos e filmes. E o melhor: é um modelo 2024, seminovo, e ainda está na garantia de fábrica da Samsung! Conecte seu notebook com um único cabo USB-C que transmite vídeo e carrega ao mesmo tempo. Oportunidade única!",
+        detailedCondition: "Monitor seminovo, em estado de novo. Sem nenhum detalhe. Funcionamento perfeito.",
+        includedItems: [
+            "1x Monitor Samsung ViewFinity S6 com base",
+            "1x Cabo de força",
+            "Caixa original e nota fiscal"
+        ],
+        additionalInfo: "Ainda na garantia de fábrica da Samsung. Envio: Apenas para retirada em mãos."
+    },
+    {
+        id: 20,
+        name: "Robô Aspirador Eufy Robovac 11S",
+        category: "Gadgets & Acessórios",
+        condition: "Usado",
+        price: 700,
+        imageUrl: "https://http2.mlstatic.com/D_NQ_NP_791079-CBT71446404930_092023-O.webp",
+        imageUrl2: "https://m.media-amazon.com/images/I/71yBPyaqexL._UF350,350_QL80_.jpg",
+        description: "Aspirador super fino e silencioso com sucção potente e tecnologia BoostIQ.",
+        persuasiveText: "Deixe a limpeza da casa no piloto automático! O Eufy Robovac 11S é o robô aspirador ideal para manter seus pisos sempre limpos. Ele é super fino, entrando debaixo de sofás e móveis com facilidade, e muito silencioso. Com a tecnologia BoostIQ, ele aumenta a potência automaticamente em tapetes. Funcionando perfeitamente, pronto para trabalhar na sua casa.",
+        detailedCondition: "Usado, em bom estado de conservação, com marcas normais de uso que não afetam o funcionamento. 100% funcional, bateria com boa autonomia e retornando para a base corretamente. Escovas e filtro limpos.",
+        includedItems: [
+            "1x Robô Aspirador Eufy Robovac 11S",
+            "1x Base de carregamento com fonte",
+            "1x Controle remoto"
+        ],
+        additionalInfo: "Garantia: Sem garantia."
+    },
+    {
+        id: 21,
+        name: "Dell Docking Station D6000",
+        category: "Periféricos & PC",
+        condition: "Usado",
+        price: 750,
+        imageUrl: "https://http2.mlstatic.com/D_NQ_NP_833373-MLB54040693071_022023-O.webp",
+        imageUrl2: "https://i.ebayimg.com/images/g/pzUAAOSwtlBkmJT7/s-l1200.jpg",
+        description: "Solução de conectividade universal que suporta até três monitores 4K.",
+        persuasiveText: "Transforme seu notebook em uma estação de trabalho completa com um único cabo! A Dell D6000 é a solução definitiva para produtividade, permitindo conectar até três monitores 4K, teclado, mouse, rede e outros periféricos. Compatível com praticamente qualquer notebook, seja ele USB-C ou USB-A. Perfeita para organizar seu home office.",
+        detailedCondition: "Usado, em ótimo estado de conservação. Testado e 100% funcional.",
+        includedItems: [
+            "1x Dell Docking Station D6000",
+            "1x Fonte de alimentação original de 130W"
+        ],
+        additionalInfo: "Garantia: Sem garantia."
+    },
+    {
+        id: 22,
+        name: "Garrafa Hidrate Spark PRO Smart",
+        category: "Gadgets & Acessórios",
+        condition: "Usado",
+        price: 450,
+        imageUrl: "https://m.media-amazon.com/images/I/71v5dGfVSsL._AC_SL1500_.jpg",
+        imageUrl2: "https://a-static.mlcdn.com.br/1500x1500/garrafa-de-agua-inteligente-hidrate-spark-pro-isolada-620ml-bluetooth/nocnocestadosunidos/buybox-cpb08c1gkf7x/c648018d59ecc4239146b51d09fd84af.jpeg",
+        description: "Garrafa de água inteligente que monitora seu consumo e brilha para te lembrar de beber.",
+        persuasiveText: "Nunca mais se esqueça de beber água! A Hidrate Spark PRO é uma garrafa inteligente que monitora sua hidratação e brilha para te lembrar ao longo do dia. Feita em aço inox, ela mantém sua bebida gelada por até 24 horas. Sincronize com o app e atinja suas metas de saúde. Produto em ótimo estado, pronto para usar.",
+        detailedCondition: "Usada, em excelente estado. Totalmente higienizada. Sensor e app funcionando perfeitamente.",
+        includedItems: [
+            "1x Garrafa Hidrate Spark PRO",
+            "1x Tampa com bico",
+            "1x Puck com sensor LED",
+            "1x Cabo de carregamento"
+        ],
+        additionalInfo: "Garantia: Sem garantia."
+    },
+    {
+        id: 23,
+        name: "INIU Wireless Charger 15W",
+        category: "Gadgets & Acessórios",
+        condition: "Usado",
+        price: 90,
+        imageUrl: "https://m.media-amazon.com/images/I/71B+4V5YhnL._UF1000,1000_QL80_.jpg",
+        imageUrl2: "https://m.media-amazon.com/images/S/aplus-media-library-service-media/242f4cec-1e37-41d2-b140-21e3636f8fe5.__CR0,0,2900,1794_PT0_SX970_V1___.jpg",
+        description: "Carregador rápido sem fio de 15W com luz adaptativa para não atrapalhar o sono.",
+        persuasiveText: "Carregue seu celular com mais rapidez e sem fios! Esta base da INIU oferece carga rápida de 15W e tem um design inteligente com uma luz de LED que não atrapalha seu sono. Compatível com todos os celulares com tecnologia Qi. Funcionando perfeitamente.",
+        detailedCondition: "Usado, em perfeito estado. 100% funcional.",
+        includedItems: [
+            "1x Base de carregamento INIU",
+            "1x Cabo USB-C"
+        ],
+        additionalInfo: "Garantia: Sem garantia."
+    },
+    {
+        id: 24,
+        name: "WILLED Under Bed Lights",
+        category: "Gadgets & Acessórios",
+        condition: "Novo",
+        price: 100,
+        imageUrl: "https://m.media-amazon.com/images/I/61CQexzzw0L.jpg",
+        imageUrl2: "https://m.media-amazon.com/images/I/71nVvw+2FcL._UF894,1000_QL80_.jpg",
+        description: "Fita de LED com sensor de movimento, dimerizável. Novo, na caixa lacrada.",
+        persuasiveText: "Chega de tropeçar no escuro! Esta fita de LED com sensor de movimento é a solução perfeita para uma iluminação suave e automática em seu quarto, corredor ou armário. Ela acende quando detecta movimento e apaga sozinha. Produto novo, na caixa, importado. Ideal para a segurança e conforto da sua casa.",
+        detailedCondition: "Produto novo, na caixa original lacrada. Nunca foi aberto ou usado.",
+        includedItems: [
+            "Kit completo na caixa lacrada."
+        ],
+        additionalInfo: "Garantia: Sem garantia."
+    }
+    ];
+    
+
+    const productGrid = document.getElementById('product-grid');
+    const categoryFilter = document.getElementById('category-filter');
+    const minPriceFilter = document.getElementById('min-price-filter');
+    const maxPriceFilter = document.getElementById('max-price-filter');
+    const resetFiltersBtn = document.getElementById('reset-filters');
+    const noResultsDiv = document.getElementById('no-results');
+    
+    const productModal = document.getElementById('product-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalContent = document.getElementById('modal-content');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+
+    const imageZoomModal = document.getElementById('image-zoom-modal');
+    const zoomedImage = document.getElementById('zoomed-image');
+    const imageZoomCloseBtn = document.getElementById('image-zoom-close-btn');
+
+    const conditionColors = {
+        "Novo": "bg-green-100 text-green-800",
+        "Semi-Novo": "bg-blue-100 text-blue-800",
+        "Pouco Usada": "bg-yellow-100 text-yellow-800",
+        "Usado": "bg-orange-100 text-orange-800",
+        "Usada": "bg-orange-100 text-orange-800",
+        "Vendido": "bg-red-100 text-red-800"
+    };
+
+    function renderProducts(productsToRender) {
+        productGrid.innerHTML = '';
+        noResultsDiv.classList.toggle('hidden', productsToRender.length === 0);
+
+        productsToRender.forEach(product => {
+            const card = document.createElement('div');
+            card.className = 'product-card bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 flex flex-col';
+            
+            let soldOverlayHTML = '';
+            let buttonState = '';
+            let conditionTag;
+
+            if (product.status === 'Vendido') {
+                soldOverlayHTML = `<div class="sold-overlay"><span class="sold-text">VENDIDO</span></div>`;
+                buttonState = 'disabled';
+                conditionTag = `<span class="tag ${conditionColors['Vendido']}">${product.status}</span>`;
+            } else {
+                 conditionTag = `<span class="tag ${conditionColors[product.condition] || 'bg-gray-100 text-gray-800'}">${product.condition}</span>`;
+            }
+
+            card.innerHTML = `
+                ${soldOverlayHTML}
+                <img src="${product.imageUrl.replace('600x450', '400x300')}" alt="${product.name}" class="w-full h-48 object-cover">
+                <div class="p-5 flex flex-col flex-grow">
+                    <div class="mb-4 flex-grow">
+                        ${conditionTag}
+                        <h3 class="text-lg font-bold mt-2 text-gray-900">${product.name}</h3>
+                        <p class="text-sm text-gray-500 mt-1">${product.category}</p>
+                        <p class="text-sm text-gray-600 mt-2">${product.description}</p>
+                    </div>
+                    <div class="mt-auto">
+                        <p class="text-2xl font-bold text-gray-900">R$ ${product.price.toLocaleString('pt-BR')}</p>
+                        <button data-product-id="${product.id}" class="details-btn w-full mt-3 bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-150 font-semibold ${buttonState ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed' : ''}" ${buttonState}>
+                            Ver Detalhes
+                        </button>
+                    </div>
+                </div>
+            `;
+            productGrid.appendChild(card);
+        });
+    }
+
+    function populateCategories() {
+        const categories = [...new Set(products.map(p => p.category))].sort();
+        categories.forEach(category => {
+            const option = document.createElement('option');
+            option.value = category;
+            option.textContent = category;
+            categoryFilter.appendChild(option);
+        });
+    }
+
+    function applyFilters() {
+        const selectedCategory = categoryFilter.value;
+        const minPrice = parseFloat(minPriceFilter.value) || 0;
+        const maxPrice = parseFloat(maxPriceFilter.value) || Infinity;
+
+        const filteredProducts = products.filter(product => 
+            (selectedCategory === 'all' || product.category === selectedCategory) &&
+            (product.price >= minPrice && product.price <= maxPrice)
+        );
+        renderProducts(filteredProducts);
+    }
+    
+    function resetFilters() {
+        categoryFilter.value = 'all';
+        minPriceFilter.value = '';
+        maxPriceFilter.value = '';
+        applyFilters();
+    }
+
+    function showProductDetails(productId) {
+        const product = products.find(p => p.id === productId);
+        if (!product) return;
+
+        modalTitle.textContent = product.name;
+        modalContent.innerHTML = `
+            <div class="flex flex-col sm:flex-row gap-4 mb-5">
+                <div class="w-full sm:w-1/2">
+                    <img src="${product.imageUrl}" alt="${product.name}" class="zoomable-image w-full h-auto object-cover rounded-lg shadow-md transition-transform duration-200 hover:scale-105">
+                </div>
+                <div class="w-full sm:w-1/2">
+                    <img src="${product.imageUrl2}" alt="Detalhe de ${product.name}" class="zoomable-image w-full h-auto object-cover rounded-lg shadow-md transition-transform duration-200 hover:scale-105">
+                </div>
+            </div>
+
+            <p class="text-base text-gray-700 italic">${product.persuasiveText}</p>
+            
+            <div>
+                <h4 class="font-bold text-gray-800">Estado do Produto</h4>
+                <p class="text-sm text-gray-600">${product.detailedCondition}</p>
+            </div>
+
+            <div>
+                <h4 class="font-bold text-gray-800">Itens Inclusos</h4>
+                <ul class="list-disc list-inside text-sm text-gray-600">
+                    ${product.includedItems.map(item => `<li>${item}</li>`).join('')}
+                </ul>
+            </div>
+
+            <div>
+                <h4 class="font-bold text-gray-800">Informações Adicionais</h4>
+                <p class="text-sm text-gray-600">${product.additionalInfo}</p>
+            </div>
+        `;
+        productModal.classList.remove('hidden');
+    }
+
+    function closeProductModal() {
+        productModal.classList.add('hidden');
+    }
+
+    function showZoomedImage(src) {
+        zoomedImage.src = src;
+        imageZoomModal.classList.remove('hidden');
+    }
+
+    function closeZoomedImage() {
+        imageZoomModal.classList.add('hidden');
+        zoomedImage.src = "";
+    }
+
+    productGrid.addEventListener('click', (event) => {
+        if (event.target.classList.contains('details-btn')) {
+            const productId = parseInt(event.target.dataset.productId, 10);
+            showProductDetails(productId);
+        }
+    });
+
+    modalContent.addEventListener('click', (event) => {
+        if (event.target.classList.contains('zoomable-image')) {
+            showZoomedImage(event.target.src);
+        }
+    });
+
+    modalCloseBtn.addEventListener('click', closeProductModal);
+    productModal.addEventListener('click', (event) => {
+        if (event.target === productModal) {
+            closeProductModal();
+        }
+    });
+
+    imageZoomCloseBtn.addEventListener('click', closeZoomedImage);
+    imageZoomModal.addEventListener('click', (event) => {
+        if (event.target === imageZoomModal) {
+            closeZoomedImage();
+        }
+    });
+
+    window.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            if (!imageZoomModal.classList.contains('hidden')) {
+                closeZoomedImage();
+            } else if (!productModal.classList.contains('hidden')) {
+                closeProductModal();
+            }
+        }
+    });
+
+    categoryFilter.addEventListener('change', applyFilters);
+    minPriceFilter.addEventListener('input', applyFilters);
+    maxPriceFilter.addEventListener('input', applyFilters);
+    resetFiltersBtn.addEventListener('click', resetFilters);
+
+    populateCategories();
+    renderProducts(products);
+    </script>
+</body>
+</html>
